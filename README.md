@@ -1,148 +1,110 @@
-# Add Watermark to the PDF Service
+
+# PDF Watermark Service
 
 ## Description
+The **PDF Watermark Service** is a secure RESTful web service designed to add watermarks and custom metadata to PDF files. Users can upload single or multiple PDFs, which are then processed to include the **company logo**, optional user ID/name, and other metadata. The service ensures high availability, security, and scalability.
 
-The Service is a RESTful web service designed to add some custom metadata and a Company logo as a watermark to PDF files. Authenticated and authorized users can upload single or multiple PDF documents. The service also provides an option to include a user's ID number or name as an additional watermark on the bottom-left of each page, indicating who downloaded the file.
-
-When a single PDF is uploaded, the service returns the watermarked file directly. For multiple file uploads, the service packages the watermarked PDFs into a single ZIP file for convenient download. The service is built with security and resilience in mind, enforcing file type and size restrictions and ensuring high availability.
-
-## Features
-
-*   **User Authentication and Authorization:** Secure access using Spring Security, OAuth2, and JWT.
-*   **Dynamic Watermarking:** Automatically adds the Valmet logo to each page of the uploaded PDF files.
-*   **Customizable User Stamp:** Optionally adds a "Downloaded by [ID number/Name]" watermark.
-*   **Single and Multiple File Handling:**
-    *   Returns a watermarked PDF for single file uploads.
-    *   Returns a ZIP archive containing all watermarked PDFs for multiple file uploads.
-*   **File Validation:** Accepts only PDF files and enforces a configurable file size limit.
-*   **High Availability:** Deployed as multiple instances with load balancing to ensure service uptime.
-*   **Fault Tolerance:** Built-in resilience patterns to handle API failures and transient errors gracefully.
+### Key Features
+* **User Authentication & Authorization:** Secure access with Spring Security, OAuth2, and JWT.
+* **Dynamic Watermarking:** Automatically adds the company logo to each page.
+* **Custom User Stamp:** Optional "Downloaded by [ID/Name]" watermark on each page's bottom-left.
+* **Single & Multiple File Handling:** Returns a watermarked PDF for single files, and a ZIP archive for multiple files.
+* **File Validation:** Accepts only PDF files, with configurable size limits (up to 800MB).
+* **High Availability & Fault Tolerance:** Multi-instance deployment with load balancing via Nginx, resilience patterns using Resilience4j, retry mechanisms, and circuit breakers.
+* **Custom Metadata & Keywords:** Adds download date, person ID, and system information to each PDF.
 
 ## Technology Stack
+* **Backend:** Java 17+, Spring Boot
+* **Web Server:** Embedded Tomcat
+* **Reverse Proxy & Load Balancer:** Nginx (HTTPS, load balancing)
+* **Security:** Spring Security 6, OAuth2, JWT, LDAP authentication, Spring Vault
+* **Secret Management:** HashiCorp Vault (RSA key pairs, passwords)
+* **PDF Manipulation:** iTextPDF 7.2.4 (`commons`, `io`, `kernel`, `layout`)
+* **Build Tool:** Apache Maven
+* **API Documentation:** Swagger / OpenAPI
+* **Logging:** SLF4J with Logback
+* **Testing:** JUnit
+* **Fault Tolerance:** Resilience4j (Circuit Breaker, Retry, Bulkhead)
+* **Monitoring:** Prometheus & Grafana
+* **Secure Communication:** SSL/TLS with PKCS#12 keystore
 
-*   **Backend:** Java 17+, Spring Boot
-*   **Web Server:** Spring Boot Embedded Tomcat
-*   **Reverse Proxy & Load Balancer:** Nginx
-*   **Security:**
-    *   Spring Security 6
-    *   OAuth2 with JSON Web Tokens (JWT)
-    *   Spring LDAP for user authentication
-    *   Spring Vault for secret management
-*   **Secret Management:** HashiCorp Vault
-*   **PDF Manipulation:** iTextPDF 7.2.4 (`commons`, `io`, `kernel`, `layout`)
-*   **Build Tool:** Apache Maven
-*   **API Documentation:** Swagger / OpenAPI
-*   **Logging:** SLF4J with Logback
-*   **Testing:** JUnit
-*   **Fault Tolerance:** Resilience4j (Circuit Breaker, Retry, Bulkhead)
-*   **Monitoring:** Prometheus and Grafana
-*   **Secure Communication:** SSL/TLS with a PKCS#12 keystore
-
-## Architecture
-
-The architecture is designed for scalability, security, and resilience.
-
-1.  **Client:** The user interacts with the service via HTTPS requests.
-2.  **Nginx:** Acts as a reverse proxy and load balancer. It terminates the SSL/TLS connection on port 443 and distributes incoming requests across the available Spring Boot application instances using load balancing algorithms. This enhances security and ensures no single instance is overwhelmed.
-3.  **Spring Boot Applications:** Multiple instances of the application run on different ports (e.g., 8081, 8082). Each instance is a self-contained web service capable of handling file uploads, processing PDFs, and applying watermarks. This multi-instance setup provides horizontal scalability and high availability.
-4.  **HashiCorp Vault:** A dedicated service for managing secrets like passwords and RSA key pairs for JWT signing. It is running on the same machine and integrates with the Spring Boot applications via Spring Vault. RSA keys are rotated monthly as a security best practice.
+## Architecture Overview
+1. **Client:** Sends HTTPS requests to the service.
+2. **Nginx:** Terminates SSL/TLS, reverse proxies requests, and load balances across multiple Spring Boot instances (ports e.g., 8081, 8082).
+3. **Spring Boot Instances:** Each instance processes PDF uploads, applies watermarks, and responds to clients.
+4. **HashiCorp Vault:** Manages sensitive data and RSA keys for JWT signing and encryption. Keys rotated monthly.
+5. **Resilience4j:** Handles fault tolerance with Circuit Breaker, Retry, and Bulkhead patterns.
 
 ## Implementation Process
+### Deployment & Load Balancing
+* Multiple Spring Boot instances deployed on different ports to enable horizontal scaling.
+* Nginx receives client requests on port 443 and distributes traffic evenly across instances.
+* Ensures fault tolerance and high availability.
 
-### Application Deployment
-The core logic is built using Spring Boot. The application is deployed in multiple instances on the same server, each listening on a different internal port (e.g., 8081, 8082). This strategy allows for effective load balancing and ensures that the failure of one instance does not bring down the entire service.
+### Security & Authentication Flow
+1. Client requests access token with credentials.
+2. Nginx forwards request to Spring Boot instance.
+3. Spring Security + LDAP validates credentials.
+4. JWT is signed with private RSA key from Vault and returned to client (access + refresh token).
+5. Client includes access token in `Authorization` header for protected endpoints.
+6. JWT is verified against Vault's public key; Spring Security grants or denies access.
 
-### Nginx Configuration
-Nginx is configured to listen for HTTPS traffic on port 443. It acts as the single entry point for all client requests. Its key responsibilities include:
-*   **SSL/TLS Termination:** Manages the SSL handshake and decrypts incoming HTTPS traffic before forwarding it to the backend.
-*   **Reverse Proxy:** Forwards requests to the upstream Spring Boot application instances.
-*   **Load Balancing:** Distributes the traffic evenly across the instances to optimize resource usage and prevent overloads.
-
-### Security and Authentication Flow
-1.  **Access Token Request:** The client initiates the authentication process by sending its credentials (username and password) to the service.
-2.  **Authentication:** Nginx forwards the request to a Spring Boot instance. The application uses Spring Security and Spring LDAP to authenticate the user against a directory service.
-3.  **JWT Issuance:** Upon successful authentication, the service generates a JWT. The token is signed using a private RSA key securely stored in HashiCorp Vault.
-4.  **Authenticated Requests:** The client includes the JWT in the `Authorization` header for all subsequent requests to protected endpoints (e.g., file upload). The service validates the JWT signature using the corresponding public key to authorize the request.
-
-### Fault Tolerance with Resilience4J
-*   **Circuit Breaker:** If a downstream service fails, the circuit breaker pattern prevents repeated failing requests. It triggers a fallback method which returns the original file without a watermark, ensuring the user still receives a response.
-*   **Retry:** Automatically re-attempts failed operations (like network timeouts) a configured number of times to recover from temporary issues.
-*   **Bulkhead:** Limits the number of concurrent requests to the API, preventing resource exhaustion and ensuring the service remains stable under high load.
+### Fault Tolerance
+* Circuit Breaker prevents repeated failures.
+* Retry automatically handles temporary failures.
+* Bulkhead limits concurrent requests to ensure stability.
 
 ### SSL/TLS Configuration
-Secure communication is enabled via HTTPS. A `keystore.p12` file containing the private key and certificate is included in the project's resources. The `application.properties` file is configured with the keystore type, password, and key alias to enable SSL/TLS within the Spring Boot application.
+* HTTPS enabled via `keystore.p12` file.
+* Configured in `application.properties` for SSL/TLS support.
 
-## API Endpoints
-
+## REST API Endpoints
 ### 1. Authentication
-
-This endpoint is used to authenticate a user and receive an access token and a refresh token.
-
-*   **URL:** `https://watermark-service.valmet.com/api/authenticate`
-*   **Method:** `POST`
-*   **Request Body:** JSON object with `username` and `password`. Valmet AD credentials are also supported.
-
-    ```json
-    {
-      "username": "valmet_watermark_generator",
-      "password": "Valmet@231"
-    }
-    ```
-*   **Success Response (200 OK):**
-
-    ```json
-    {
-      "type": "RESULT",
-      "message": ["OK"],
-      "result": {
-        "accessToken": "eyJraWQiOiI3MGIxOGNjZC0xZTM1LTQ3YTItYmYwNy0xZDU0YzI2MGY3ZjQiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ3YXRlcm1hcmstZ2VuZXJhdG9yIiwic2NvcGUiOiIiLCJpc3MiOiJzZWxmIiwiZXhwIjoxNzMyNzkxNDc3LCJ0b2tlbl90eXBlIjoiQUNDRVNTIiwiaWF0IjoxNzMyNzA1MDc3fQ.lyp4-9q9MLMpa20-TAYUOUP6DrsSufnjAWnUT9SQn9XUaLEXeNjFnxC63IXojYthY0zrPIHZjMv5fE9UpFG0QmZm9kQSyBbFwHTHdySNaf5vwn9STOagn_STOfcCD0a2n7O_Frobyd8nXqaFXhZtTeZGPBabd3h6IQjKBNogX00OUdDxhUe2Szo70J7Z_RZvQKLP1NtyfmAi0yiPLWtKBZhqe_j-e7FNDeUXMxpVbYA9njn6ge9A88jiuJLYM1m2inrGItP5dbMvkgdFl09O9rY61wjaMX0JNkDooMHe1pWAQJBzhIzq9IudAmEFoFuGxf12weROE6_hefNdbYsGKg",
-        "refreshToken": "eyJraWQiOiI3MGIxOGNjZC0xZTM1LTQ3YTItYmYwNy0xZDU0YzI2MGY3ZjQiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ3YXRlcm1hcmstZ2VuZXJhdG9yIiwic2NvcGUiOiIiLCJpc3MiOiJzZWxmIiwiZXhwIjoxNzY0MjQxMDc3LCJ0b2tlbl90eXBlIjoiUkVGUkVTSCIsImlhdCI6MTczMjcwNTA3N30.ef6zHn7PNViCZDqAFCqMLkqZIx6I-IHNeWbFjPFOqoeQX8mGmacOqmTp5ostEFZZaexmo6xw7Zh1xbS81XFLmu61Tr9wc94c2B9QWG_sqMGUEkFFg8FrWZltvytjT3ZyniIfhGbb8z_7bvrLCtSHKvwGqpInbZIwAvO-PlZqUe2yx_JUdV4yA3mP15sGset5Q5m2DWaKuIHFMk91ysQKBLqEGSfWlV6o0v0csljLkUPFAr9XEkCsUiz6JZU0Lfz_T2vovzBEsCaYeCf6PyejNz0xQHZFOrbzq52XcImI3BNyWB0Cl1BvH_xMJ0bw3xp0KqS--XnyKOy-Qd9BgB2pdg"
-      },
-      "code": "200"
-    }
-    ```
+* **POST** `/api/authenticate`
+* Request Body: `{ "username": "user", "password": "pass" }`
+* Returns: Access token & refresh token (JWT)
 
 ### 2. Add Watermark
-
-This endpoint processes single or multiple PDF files to add watermarks.
-
-*   **URL:** `https://watermark-service.valmet.com/api/watermark`
-*   **Method:** `POST`
-*   **Headers:**
-    *   `Authorization`: `Bearer <accessToken>`
-    *   `Content-Type`: `multipart/form-data`
-*   **Form Data:**
-    *   `file`: The PDF file(s) to be watermarked.
-    *   `personID` (optional): The ID or name to be added as a watermark.
-    *   `email` (optional): If `personID` is not provided, the system uses this email to look up the user in Valmet AD and adds their ID as the watermark.
-    *   `system` (optional): The name of the source system (e.g., Sovelia, PDM).
-*   **Response:**
-    *   For a single file upload, the response is the watermarked PDF file (`application/pdf`).
-    *   For multiple file uploads, the response is a ZIP file (`application/zip`) containing all the watermarked PDFs.
+* **POST** `/api/watermark`
+* Headers: `Authorization: Bearer <token>`, `Content-Type: multipart/form-data`
+* Form Data:
+  * `file`: PDF(s) to watermark
+  * `personID` (optional)
+  * `email` (optional)
+  * `system` (optional)
+* Response:
+  * Single file → watermarked PDF (`application/pdf`)
+  * Multiple files → ZIP archive (`application/zip`)
 
 ### 3. Renew Access Token
+* **POST** `/api/renewToken`
+* Request Body: `{ "refreshToken": "<token>" }`
+* Response: New access token + original refresh token
 
-This endpoint is used to get a new access token using a valid refresh token when the original access token has expired.
+## Business Logic & Watermark Process
+1. Validate PDF file type & size.
+2. Save file temporarily on server.
+3. Generate "Downloaded By [ID/System]" image if provided.
+4. Apply watermark logo & optional user image on all pages.
+5. Add custom metadata (download date, person ID, system).
+6. Return PDF or ZIP to client.
+7. Delete temporary files after response.
 
-*   **URL:** `https://watermark-service.valmet.com/api/renewToken`
-*   **Method:** `POST`
-*   **Request Body:** JSON object containing the `refreshToken`.
+## Watermark Settings (`watermark-settings.properties`)
+* `opacity`: Watermark brightness
+* `fontColor`: Watermark text color (default black)
+* `xAxis`, `yAxis`: Watermark positioning
+* `fontName`, `fontStyle`: Font settings for user stamp
 
-    ```json
-    {
-      "refreshToken": "eyJraWQiOiI3MGIxOGNjZC0xZTM1LTQ3YTItYmYwNy0xZDU0YzI2MGY3ZjQiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ3YXRlcm1hcmstZ2VuZXJhdG9yIiwic2NvcGUiOiIiLCJpc3MiOiJzZWxmIiwiZXhwIjoxNzY0MjQxNDQ2LCJ0b2tlbl90eXBlIjoiUkVGUkVTSCIsImlhdCI6MTczMjcwNTQ0Nn0.bAumWnHcD5i6qrvkrsuSIJ25mSdYM3Diw45PohfoOVDtWnebcVzmmOcDMIi12viVHNt6YUuRAA6wbzs4wzKpxaHXV4Qr2IJsK2EOREoeOq9uiJZP4uRdOVCNaTZ45S2a1XHkRS60EOXaXWBgppDkJrqpY6sNxkcvAAlPyloF7POGjZIJIyN0S8FjNvElm3ljMMFrJ6_iVBz_wBsoyc7zTOMpqk5zp_6WefN0PSS50FPGhUVW3C0YzFZf_1FRCGOH4ydXQjIh1oPSRif1hYLH1cEZRI3vXzuuS-CZyxVbafg1L9KIM5zMeEvtDEHJvocPRaraH_ViuaUNeaHD5CkBSg"
-    }
-    ```
-*   **Success Response (200 OK):** The response contains a new `accessToken` and the same `refreshToken`.
+## Security & Secret Management
+* RSA key pairs are securely stored in HashiCorp Vault.
+* JWT access tokens are short-lived; refresh tokens can renew access.
+* Regular key rotation ensures high security.
 
-    ```json
-    {
-      "type": "RESULT",
-      "message": ["OK"],
-      "result": {
-        "accessToken": "eyJraWQiOiI3MGIxOGNjZC0xZTM1LTQ3YTItYmYwNy0xZDU0YzI2MGY3ZjQiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ3YXRlcm1hcmstZ2VuZXJhdG9yIiwic2NvcGUiOiIiLCJpc3MiOiJzZWxmIiwiZXhwIjoxNzMyNzkxNDc3LCJ0b2tlbl90eXBlIjoiQUNDRVNTIiwiaWF0IjoxNzMyNzA1MDc3fQ.lyp4-9q9MLMpa20-TAYUOUP6DrsSufnjAWnUT9SQn9XUaLEXeNjFnxC63IXojYthY0zrPIHZjMv5fE9UpFG0QmZm9kQSyBbFwHTHdySNaf5vwn9STOagn_STOfcCD0a2n7O_Frobyd8nXqaFXhZtTeZGPBabd3h6IQjKBNogX00OUdDxhUe2Szo70J7Z_RZvQKLP1NtyfmAi0yiPLWtKBZhqe_j-e7FNDeUXMxpVbYA9njn6ge9A88jiuJLYM1m2inrGItP5dbMvkgdFl09O9rY61wjaMX0JNkDooMHe1pWAQJBzhIzq9IudAmEFoFuGxf12weROE6_hefNdbYsGKg",
-        "refreshToken": "eyJraWQiOiI3MGIxOGNjZC0xZTM1LTQ3YTItYmYwNy0xZDU0YzI2MGY3ZjQiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ3YXRlcm1hcmstZ2VuZXJhdG9yIiwic2NvcGUiOiIiLCJpc3MiOiJzZWxmIiwiZXhwIjoxNzY0MjQxMDc3LCJ0b2tlbl90eXBlIjoiUkVGUkVTSCIsImlhdCI6MTczMjcwNTA3N30.ef6zHn7PNViCZDqAFCqMLkqZIx6I-IHNeWbFjPFOqoeQX8mGmacOqmTp5ostEFZZaexmo6xw7Zh1xbS81XFLmu61Tr9wc94c2B9QWG_sqMGUEkFFg8FrWZltvytjT3ZyniIfhGbb8z_7bvrLCtSHKvwGqpInbZIwAvO-PlZqUe2yx_JUdV4yA3mP15sGset5Q5m2DWaKuIHFMk91ysQKBLqEGSfWlV6o0v0csljLkUPFAr9XEkCsUiz6JZU0Lfz_T2vovzBEsCaYeCf6PyejNz0xQHZFOrbzq52XcImI3BNyWB0Cl1BvH_xMJ0bw3xp0KqS--XnyKOy-Qd9BgB2pdg"
-      },
-      "code": "200"
-    }
-    ```
+## Monitoring & Logging
+* Prometheus + Grafana for metrics and health monitoring.
+* SLF4J + Logback for structured logging.
+* Resilience4j metrics monitored for circuit breaker & retry events.
+
+## Summary
+This service provides a **secure, scalable, and fault-tolerant** mechanism for watermarking PDF files. It supports **user-specific tracking**, multiple file handling, and ensures **high availability** and **resilient performance**.
