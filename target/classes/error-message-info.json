@@ -1,0 +1,34 @@
+{
+  "40101": {
+    "level": "ERROR",
+    "message": "Invalid login credentials. Please check your username and password."
+  },
+  "40103": {
+    "level": "ERROR",
+    "message": "Token has expired."
+  },
+  "40104": {
+    "level": "ERROR",
+    "message": "Unauthorized. Invalid payload."
+  },
+  "40105": {
+    "level": "ERROR",
+    "message": "No files provided."
+  },
+  "40106": {
+    "level": "ERROR",
+    "message": "Invalid file type. Please provide a PDF."
+  },
+  "40107": {
+    "level": "ERROR",
+    "message": "File size exceeds the configured maximum limit."
+  },
+  "40108": {
+    "level": "ERROR",
+    "message": "Invalid property key."
+  },
+  "5000": {
+    "level": "ERROR",
+    "message": "Internal server error."
+  }
+}

@@ -1,0 +1,53 @@
+<configuration>
+    <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
+    <springProperty scope="context" name="LOG_PATH" source="watermark.custom.log.path"/>
+    <springProperty scope="context" name="SERVER_PORT" source="server.port"/>
+
+    <!-- Console Appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File Appender for both test and prod profiles -->
+    <springProfile name="test, prod">
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_PATH}/instance_${SERVER_PORT}_logger.log</file>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <!-- Roll over daily and compress into a zip file -->
+                <fileNamePattern>${LOG_PATH}/archived/instance_${SERVER_PORT}_logger.%d{yyyy-MM-dd}.log.zip
+                </fileNamePattern>
+                <maxHistory>7</maxHistory>
+            </rollingPolicy>
+        </appender>
+        <!-- Request and Response File Appender -->
+        <!-- Request and Response File Appender -->
+        <appender name="REQUEST_RESPONSE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_PATH}/request_response_${SERVER_PORT}_logger.log</file>
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <!-- Roll over daily and compress into a zip file -->
+                <fileNamePattern>${LOG_PATH}/archived/request_response_${SERVER_PORT}_logger.%d{yyyy-MM-dd}.log.zip
+                </fileNamePattern>
+                <maxHistory>7</maxHistory>
+            </rollingPolicy>
+        </appender>
+    </springProfile>
+
+    <!-- Root logger configuration -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+    <!-- Logger for Request and Response -->
+    <logger name="REQUEST_RESPONSE_LOGGER" level="INFO" additivity="false">
+        <appender-ref ref="REQUEST_RESPONSE_FILE"/>
+    </logger>
+</configuration>

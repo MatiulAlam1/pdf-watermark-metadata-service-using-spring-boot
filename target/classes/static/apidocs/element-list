@@ -1,0 +1,13 @@
+com.valmet.watermark
+com.valmet.watermark.advice
+com.valmet.watermark.config
+com.valmet.watermark.config.security
+com.valmet.watermark.constants
+com.valmet.watermark.controller
+com.valmet.watermark.dto
+com.valmet.watermark.enums
+com.valmet.watermark.exception
+com.valmet.watermark.logging
+com.valmet.watermark.response
+com.valmet.watermark.service
+com.valmet.watermark.service.impl

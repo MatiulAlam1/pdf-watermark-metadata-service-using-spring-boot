@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  app:
+    image: REPOSITORY_NAME/watermark-service-rep:latest  # Use your Docker image name
+    ports:
+      - "9091:8080"  # Map port 8080 of the container to port 9091 on the host
+    environment:
+      - SPRING_PROFILES_ACTIVE=test
+    volumes:
+      - tmp:/tmp  # Reference the named volume 'tmp'
+      - logs:/workspace/logs
+    networks:
+      - app-network
+volumes:
+  logs:                 # Define the named volume 'logs'
+    driver: local
+  tmp:  # Define the named volume 'tmp'
+    driver: local
+networks:
+  app-network:
+    driver: bridge
