@@ -1,8 +1,8 @@
-# Add Watermark Service to the PDF
+# Add Watermark to the PDF Service
 
 ## Description
 
-The Valmet Watermark Service is a RESTful web service designed to add a Company logo as a watermark to PDF files. Authenticated and authorized users can upload single or multiple PDF documents. The service also provides an option to include a user's ID number or name as an additional watermark on the bottom-left of each page, indicating who downloaded the file.
+The Service is a RESTful web service designed to add some custom metadata and a Company logo as a watermark to PDF files. Authenticated and authorized users can upload single or multiple PDF documents. The service also provides an option to include a user's ID number or name as an additional watermark on the bottom-left of each page, indicating who downloaded the file.
 
 When a single PDF is uploaded, the service returns the watermarked file directly. For multiple file uploads, the service packages the watermarked PDFs into a single ZIP file for convenient download. The service is built with security and resilience in mind, enforcing file type and size restrictions and ensuring high availability.
 
